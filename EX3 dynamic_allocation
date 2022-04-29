@@ -1,0 +1,158 @@
+.data
+#specifing the size of the array its individual elements
+array_size: .byte 5
+elem_size: .byte 12,2,3,43,10
+space: .asciiz" "
+endl: .asciiz"\n"
+.text
+
+#create space for storing data
+# $v0 returns the state of the procedure
+# $t0 returns the first address of the array
+
+jal Create_array
+
+bne $v0, $zero, End_program
+
+
+add $t3, $zero, $zero
+la $t2, elem_size
+la $t4, array_size
+lbu $t4, ($t4)
+
+proof:
+beq $t3, $t4, End_program
+sll $t3, $t3, 2
+add $s5, $t0, $t3 #get array stored in t0 and store to s5
+lw $s5, ($s5)
+srl $t3, $t3, 2
+add $s6, $t3, $t2
+lbu $s6, ($s6) #get size stored in t2 and assign to s6
+jal Random_Generator #generate random nummber for array
+jal print #print array
+li $v0, 4
+la $a0, endl
+syscall
+addi $t3, $t3, 1
+j proof
+
+
+End_program:
+#end program
+
+li $v0, 10
+syscall
+
+
+
+print:# array stored in $s5, size stored in $s6
+addi $sp, $sp, -4
+sw $t3, ($sp)
+add $t3, $zero, $zero
+Looop1: beq $t3, $s6, Endloop
+addi $sp, $sp, -4
+sw $t3, ($sp)
+add $t3, $t3, $s5
+lbu $t3, ($t3)
+li $v0, 1
+move $a0, $t3
+syscall
+li $v0, 4
+la $a0, space
+syscall
+lw $t3, ($sp)
+addi $sp, $sp, 4
+addi $t3, $t3, 1
+j Looop1
+Endloop1:
+lw $t3, ($sp)
+addi $sp, $sp, 4
+jr $ra
+
+
+
+
+
+
+
+Random_Generator:# array stored in $s5, size stored in $s6
+addi $sp, $sp, -4
+sw $t3, ($sp)
+add $t3, $zero, $zero
+Looop: beq $t3, $s6, Endloop
+addi $sp, $sp, -4
+sw $t3, ($sp)
+add $t3, $t3, $s5
+li $v0, 42
+li $a1, 10
+syscall
+sb $a0, ($t3)
+lw $t3, ($sp)
+addi $sp, $sp, 4
+addi $t3, $t3, 1
+j Looop
+Endloop:
+lw $t3, ($sp)
+addi $sp, $sp, 4
+jr $ra
+
+
+
+
+
+
+
+
+Create_array:
+addi $t1, $zero, 1
+sll $t1, $t1, 16 # $t1 stores max size 65536
+la $t2, array_size
+lbu $t2, ($t2) # t2 stores array_size
+la $t3, elem_size #t3 stores first address of elem_size array
+add $t5, $zero, $zero
+add $t6, $zero, $zero
+Loop: beq $t5, $t2, Exit # get total # of bytes and store to t6
+add $t4, $t5, $t3
+lbu $t4, ($t4)
+add $t6, $t6, $t4 # t6 gets accumulated over time
+addi $t5, $t5, 1
+j Loop
+Exit: addi $sp, $sp, -4
+sw $t6, ($sp) #store t6 to stack
+#create array of length 4*t2
+sll $t2, $t2, 2 #t2= 4*t2
+li $v0, 9
+move $a0, $t2
+syscall
+move $t0, $v0 # t0 hold the first address of 4*t2 array
+add $t5, $zero, $zero #reset t5 to 0
+srl $t2, $t2, 2 #t2=t2/4
+Loop2: beq $t5, $t2, Break #create array
+add $t6, $t5, $t3 #getting size of the current element
+li $v0, 9 # creating array of size t6 and store first address to v0
+lbu $a0, ($t6)
+syscall
+sll $t5, $t5, 2#t5=t5*4
+add $t6, $t5, $t0 # assign address of (t0 + 4*t5) to t6
+srl $t5, $t5, 2 # t5=t5/4
+sw $v0, ($t6)# array address held by v0 to t6
+addi $t5, $t5, 1#increment t5 by 1
+j Loop2
+Break:
+#check if overflow
+lw $t6, ($sp)
+addi $sp, $sp, 4
+slt $t5, $t6, $t1 # compare t6 with max size t1 65526
+beq $t5, $zero, Yes
+add $v0, $zero, $zero
+j End
+Yes: # overflow
+addi $v0, $zero, -1
+End:
+jr $ra
+
+
+
+
+
+

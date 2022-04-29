@@ -1,0 +1,145 @@
+.data
+f_out_in: .asciiz "data.txt"
+r_w: .byte 1 # 0 is read 1 is write 
+array: .byte 12,33,54,12,65,78,00
+array2: .space 100
+buffer: .space 100
+size: .byte 7
+space: .asciiz" \0"
+.text
+#la $t0, f_out_in # stores data path
+la  $t1, r_w # store flag
+lbu $t1, ($t1)
+la $t2, array # store array based address
+la $t3, size# load in size of array
+lbu $t3, ($t3)
+la $t4, buffer
+
+
+
+
+jal File_IO
+
+
+add $s0, $zero, $zero
+
+Loop2:# print buffer
+slt $s1, $s0, $s3
+beq $s1, $zero, out2
+add $s1, $s0, $t4
+lbu $s1, ($s1)
+li $v0, 1
+move $a0, $s1
+syscall
+li $v0, 4
+la $a0, space
+syscall
+addi $s0, $s0, 1
+j Loop2
+out2:
+
+#end program
+li $v0, 10
+syscall
+
+
+
+File_IO:
+#Open file
+li $v0, 13
+la $a0, f_out_in
+move $a1, $t1  #a1=1 write 0 read
+li $a2, 0
+syscall
+move $s6, $v0
+
+#save ra
+addi $sp, $sp, -4
+sw $ra, ($sp)
+beq $t1, $zero, IF 
+#1 then write
+move $t1, $zero
+
+Loop:
+beq $t1, $t3, Exit# t3 hold the size of the array to be writtent to
+add $t4, $t1, $t2
+lb $t4, ($t4) # t4 is holding element of array
+jal Write
+addi $t1, $t1, 1
+j Loop
+IF:       #0 then read
+#read from file write to array
+li $v0, 14
+move $a0, $s6
+la $a1, array2 #a1 contains the based address
+addi $a2, $zero, 100
+syscall
+#get size and store to t0
+add $s0, $zero, $zero
+addi $s2, $zero, 32
+add $s3, $zero, $zero
+add $s5, $zero, $zero
+Repeat2: slti $s1, $s0, 100 
+beq $s1, $zero, Exit #if s0 >=100 exit
+add $s1, $s0, $a1 #get address of a1
+lbu $s1, ($s1) #get data from s1
+beq $s1, $zero, Exit #s1 ==0 means end of string
+bne $s1, $s2, Skip# if s1 == space means end of a number
+add $s4, $s3, $t4# get current empty position from t4 buffer to s4
+sb $s5, ($s4)# s5 is the number after converting
+add $s5, $zero, $zero# reset s5 to 0
+addi $s3, $s3, 1 # move to the next empty position in t4 s3 = size of t4 
+j Break2
+Skip:# decoding from ascii to number
+mul $s5, $s5, 10
+addi $s1, $s1, -48
+add $s5, $s5, $s1
+Break2:
+addi $s0, $s0, 1
+j Repeat2
+Exit:
+#Close file
+li $v0, 16
+move $a0, $s6
+syscall
+lw $ra, ($sp)
+addi $sp, $sp, 4
+jr $ra
+
+
+
+
+
+
+Write:
+addi $s0, $zero, 32#space in asccii
+addi $s1, $zero, 10
+div $t4, $s1 #t4 modulo 10 to get the last digit
+mflo $t4 # t4= t4/s1
+addi $sp, $sp, -1# push to stack
+sb $s0, ($sp)# push a space to stack
+mfhi $s0 #s0= t4 mod s1
+addi $s2, $zero, 1
+Repeat: addi $sp, $sp, -1
+addi $s0, $s0, 48 #convert to asccii 
+sb $s0, ($sp)# psuh to stack
+addi $s2, $s2, 1#to find out the number of digits of a number
+beq $t4, $zero, Break#devide until t4 =0
+div $t4, $s1
+mflo $t4# t4=t4/s1
+mfhi $s0#so t4mods1
+j Repeat
+Break:
+#Write to file
+li $v0, 15
+move $a0, $s6
+la $a1, ($sp)
+add $a2, $zero, $s2
+syscall
+add $sp, $sp, $s2
+jr $ra
+
+
+
+
+

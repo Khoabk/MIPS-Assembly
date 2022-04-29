@@ -1,0 +1,451 @@
+.data
+
+matrixA: .space 12  #height, width, type
+matrixB: .space 12 
+matrixC: .space 12
+space: .asciiz" "
+endl: .asciiz"\n"
+Amatrix: .asciiz"cmake-build-debug/A.txt"
+Bmatrix: .asciiz"cmake-build-debug/B.txt"
+Result: .asciiz"cmake-build-debug/result.txt"
+inputA: .asciiz"Input matrix A\n"
+inputB: .asciiz"Input matrix B\n"
+height: .asciiz"height\n"
+width: .asciiz"width\n"
+error_message: .asciiz"dimension mismatch!\n"
+.text
+
+
+
+#input matrix A
+la $t0, matrixA
+li $v0, 4
+la $a0, inputA
+syscall
+#input height
+li $v0, 4
+la $a0, height
+syscall
+li $v0, 5
+syscall
+sw $v0, ($t0)
+#input width
+li $v0, 4
+la $a0, width
+syscall
+li $v0, 5
+syscall
+sw $v0, 4($t0)
+addi $v0, $zero, 0
+sw $v0, 8($t0)
+
+
+#input matrix B
+la $t0, matrixB
+li $v0, 4
+la $a0, inputB
+syscall
+#input height
+li $v0, 4
+la $a0, height
+syscall
+li $v0, 5
+syscall
+sw $v0, ($t0)
+#input width
+li $v0, 4
+la $a0, width
+syscall
+li $v0, 5
+syscall
+sw $v0, 4($t0)
+addi $v0, $zero, 1
+sw $v0, 8($t0)
+
+
+
+#create matrix B
+
+
+la $t0, matrixB
+
+jal Creatematrix#input t0 output s0
+
+#jal Print #print matrix B
+
+la $t0, Bmatrix
+
+jal Printtofile#s0 stores matrix, t0 stores datapath
+
+move $s7, $s0 #store matrix B to $s7
+
+
+
+
+#create matrixA
+la $t0, matrixA
+
+jal Creatematrix#input t0 output s0
+
+la $t0, Amatrix
+
+jal Printtofile#s0 stores matrix, t0 stores datapath
+
+
+move $s1, $s7 #$s1 is to store matrix B
+move $s7, $s0  #s0 is to store matrix A
+
+
+
+jal Matrix_mul #s2 stores output matrix catch v0 to check error
+
+bne $v0, $zero, Error 
+
+
+
+li $v0, 4
+la $a0, endl
+syscall
+
+move $s0, $s2
+la $t0, Result
+
+jal Printtofile#s0 stores matrix, t0 stores datapath
+
+
+
+
+
+
+
+
+
+Endprogram:
+# end program
+li $v0, 10
+syscall
+
+
+
+
+
+
+Error: li $v0, 4
+la $a0, error_message
+syscall
+j Endprogram
+
+
+
+Printtofile:#s0 stores matrix, t0 stores datapath
+#open file
+li $v0, 13
+la $a0, ($t0)
+addi $a1, $zero, 1  #a1=1 write 0 read
+li $a2, 0
+syscall
+move $s6, $v0 #from now on use s6 to interact with file not datapath
+addi $t0, $zero, 4
+addi $t2, $zero, 12
+getdimension:beq $t0, $t2, Exitprint # print the dimension of the matrix to file
+addi $sp, $sp, -4
+sw $t0, ($sp)
+add $t0, $s0, $t0
+lw $t0, ($t0)
+addi $t3, $zero, 32
+addi $sp, $sp, -1
+sb $t3, ($sp)
+addi $a2, $zero, 1
+addi $a0, $zero, 10
+printdimentsion:beq $t0, $zero, Exitdimension
+div $t0, $a0 
+mfhi $t3 #t3= t0%10
+mflo $t0 #t0=t0/10
+addi $t3, $t3, 48
+addi $sp, $sp, -1
+sb $t3, ($sp)
+addi $a2, $a2, 1
+j printdimentsion
+Exitdimension:
+li $v0, 15
+move $a0, $s6
+la $a1, ($sp)
+syscall
+add $sp, $sp, $a2
+lw $t0, ($sp)
+addi $sp, $sp, 4
+addi $t0, $t0, 4
+j getdimension
+Exitprint:
+li $v0, 15
+move $a0, $s6
+la $a1, endl
+addi $a2, $zero, 1 #size is stored in s3
+syscall
+
+lw $t0, ($s0) #get array
+lw $t1, 4($s0)#get height
+lw $t2, 8($s0)#get width
+lw $t3, 12($s0)#get type
+
+
+#set up 2 counters
+add $t4, $zero, $zero
+add $t5, $zero, $zero
+Outerloop: beq $t4, $t1, Exitoutloop# traversing along the height
+sll $t4, $t4, 2
+Inloop: beq $t5, $t2, Exitinloop # traversing along the width
+sll $t5, $t5, 2
+#classify type A and B
+beq $t3, $zero, typeA
+#type B t0 is horizontal axis
+add $t6, $t5, $t0
+lw $t6, ($t6)
+add $t6, $t6, $t4
+lw $t6, ($t6)
+j terminal
+typeA:
+#type A t0 is verical axis
+add $t6, $t4, $t0
+lw $t6, ($t6)
+add $t6, $t6, $t5
+lw $t6, ($t6)
+terminal:
+#s2 stores 10
+addi $s2, $zero, 10
+div $t6, $s2
+mfhi $s1 #s1= t6 mod 10
+mflo $t6 # t6= t6/10
+addi $s3, $zero, 32
+addi $sp, $sp, -2
+sb $s3, 1($sp)#add space to array
+addi $s1, $s1, 48# convert number to ascii code
+sb $s1, ($sp)# first digit
+addi $s3, $zero, 2#current size of the array is 2
+accum:
+beq $t6, $zero, exit_accum
+div $t6, $s2 #continue modulo t6 with 10
+mfhi $s1 #s1= t6 mod 10
+mflo $t6 # t6= t6/10
+addi $sp, $sp, -1
+addi $s3, $s3, 1#increase size of array by 1
+addi $s1, $s1, 48#convert number to ascii code
+sb $s1, ($sp)# store last digit to array
+j accum
+exit_accum:
+#write to file
+li $v0, 15
+move $a0, $s6
+la $a1, ($sp)
+add $a2, $zero, $s3 #size is stored in s3
+syscall
+add $sp, $sp, $s3# empty stack
+srl $t5, $t5, 2
+addi $t5, $t5, 1
+j Inloop
+Exitinloop:
+add $t5, $zero, $zero
+srl $t4, $t4, 2
+addi $t4, $t4, 1
+#write endl to file
+li $v0, 15
+move $a0, $s6
+la $a1, endl
+addi $a2, $zero, 1 #size is stored in s3
+syscall
+j Outerloop
+Exitoutloop:
+#close file
+li $v0, 16
+move $a0, $s6
+syscall
+jr $ra
+
+
+
+
+
+
+Creatematrix:#input t0 output s0
+addi $sp, $sp, -4
+sw $ra, ($sp)
+li $v0, 9
+addi $a0, $zero, 16
+syscall
+move $s0, $v0
+lw $t1, ($t0)#get height from t0
+sw $t1, 4($v0)#store height tov0
+lw $t1, 4($t0)#get width from t0
+sw $t1, 8($v0)
+lw $t1, 8($t0)
+sw $t1, 12($v0)
+beq $t1, $zero, CaseA
+lw $t1, 4($t0)
+lw $t2, ($t0)
+j End
+CaseA: lw $t1, ($t0)
+lw $t2, 4($t0)
+End: sll $t1, $t1, 2
+sll $t2, $t2, 2
+li $v0, 9
+move $a0, $t1
+syscall
+sw $v0, ($s0)
+move $s6, $v0
+add $t3, $zero, $zero
+Loop1: beq $t3, $t1, Outloop
+add $t4, $t3, $s6
+li $v0, 9
+move $a0, $t2
+syscall
+sw $v0, ($t4)
+addi $t3, $t3, 4
+# size is in t2 and array is in v0
+addi $sp, $sp, -4
+sw $s6, ($sp)
+move $s5, $v0
+move $s6, $t2
+jal Random_Generator
+lw $s6, ($sp)
+addi $sp, $sp, 4
+j Loop1
+Outloop:
+lw $ra, ($sp)
+addi $sp, $sp, 4
+jr $ra
+
+
+
+
+
+
+
+Random_Generator:# array stored in $s5, size stored in $s6
+addi $sp, $sp, -4
+sw $t3, ($sp)
+add $t3, $zero, $zero
+Looop: beq $t3, $s6, Endloop
+addi $sp, $sp, -4
+sw $t3, ($sp)
+add $t3, $t3, $s5
+li $v0, 42
+li $a1, 10
+syscall
+sb $a0, ($t3)
+lw $t3, ($sp)
+addi $sp, $sp, 4
+addi $t3, $t3, 4
+j Looop
+Endloop:
+lw $t3, ($sp)
+addi $sp, $sp, 4
+jr $ra
+
+
+
+
+
+
+
+MulArray: add $a0, $zero, $zero
+add $v0, $zero, $zero
+Repeat: beq $a0, $t9, Exit3
+sll $a0, $a0, 2
+addi $sp, $sp, -4
+sw $a0, ($sp)
+add $a1, $a0, $t0
+add $a0, $a0, $t1
+lw $a1, ($a1)
+lw $a0, ($a0)
+mul $a0, $a1, $a0
+add $v0, $v0, $a0
+lw $a0, ($sp)
+addi $sp, $sp, 4
+srl $a0, $a0, 2
+addi $a0, $a0, 1
+j Repeat
+Exit3:
+jr $ra
+
+
+
+
+Matrix_mul: #input $s0 for matrix A, $s1 for matrix B, output  v0 for state of process
+#output s2 for result matrix of succeed
+# get wA and hB to check if matched
+lw $t0, 8($s0)#get wA
+lw $t1, 4($s1)#get hAB
+beq $t0, $t1, succeed
+addi $v0, $zero, -1
+jr $ra
+succeed: #wA and hB are matched
+addi $sp, $sp, -4
+sw $ra, ($sp)
+#get dimensions for matrix C (typeA=0, hA, wB)
+la $t0, matrixC
+lw $t1, 4($s0)#get hA
+sw $t1, ($t0)#store hA to s2+4
+lw $t1, 8($s1)#get wB
+sw $t1, 4($t0)#store hA to s2+8
+sw $zero, 8($t0)#matrix C is type A
+#s7 is stroring matrix A
+#create matrix C
+jal Creatematrix #input t0 output s0
+#pass value of s0 to s2
+move $s2, $s0  # s2 is storing matrix C
+move $s0, $s7 # s0 stores matrix A
+# s0(A) s1(B) s2(C)
+lw $t7, 4($s0)#get hA
+lw $t0, ($s0)#getting A mtrix
+add $t4, $zero $zero#set counter t4 to 0
+lw $t8, 8($s1)#het wB
+lw $t1, ($s1)#get matrix B
+add $t5, $zero, $zero #set counter t5 to 0
+lw $t9, 4($s1)#het hB
+lw $t6, ($s2)#get matrix C
+Loop: beq $t4, $t7, Break
+addi $sp, $sp, -4
+sll $t4, $t4, 2
+sw $t0, ($sp)
+add $t0, $t0, $t4 #get row of A matrix
+lw $t0, ($t0)
+#get element of C matrix
+addi $sp, $sp, -4
+sw $t6, ($sp)
+add $t6, $t6, $t4
+lw $t6, ($t6)
+Loop2: beq $t5, $t8, Break2
+addi $sp, $sp, -4
+sll $t5, $t5, 2
+sw $t1, ($sp)
+add $t1, $t1, $t5
+lw $t1, ($t1)
+jal MulArray #take t0, t1, t9 as parameters
+addi $sp, $sp, -4
+sw $t6, ($sp)
+add $t6, $t6, $t5
+sw $v0, ($t6)
+lw $t6, ($sp)
+addi $sp, $sp, 4
+srl $t5, $t5, 2
+addi $t5, $t5, 1
+lw $t1, ($sp)
+addi $sp, $sp, 4
+j Loop2
+Break2: add $t5, $zero, $zero
+lw $t6, ($sp)
+addi $sp, $sp, 4
+lw $t0, ($sp)
+addi $sp, $sp, 4
+srl $t4, $t4, 2
+addi $t4, $t4, 1
+j Loop
+Break:
+lw $ra, ($sp)
+addi $sp, $sp, 4
+addi $v0, $zero, 0
+jr $ra
+
+
+
+

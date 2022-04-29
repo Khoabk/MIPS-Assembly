@@ -5,4 +5,4 @@ the program will then perform matrix multiplication and the result will be writt
 
 - I also wrote a C++ program to validate the result.
 
-- The program is in EX5.md file, to run it, simply download the mips mars simulator program then run this file on the software.
+- The program is in EX5 file, to run it, simply download the mips mars simulator program then run this file on the software.
